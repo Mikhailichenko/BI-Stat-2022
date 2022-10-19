@@ -23,13 +23,13 @@ def check_dge_with_ci(first_table, second_table):
 def check_dge_with_ztest(first_table, second_table):
     z_test_results = []
     for i in range(np.shape(first_table)[1]):
-        z_test_results.append(ztest(first_table.iloc[:, [i]], second_table.iloc[:, [i]])[1]<0.05)
+        z_test_results.append(float(ztest(first_table.iloc[:, [i]], second_table.iloc[:, [i]])[1])<0.05)
     return z_test_results
 
 def check_dge_with_ztest_p_values(first_table, second_table):
     z_test_p_values = []
     for i in range(np.shape(first_table)[1]):
-        z_test_p_values.append(ztest(first_table.iloc[:, [i]], second_table.iloc[:, [i]])[1])
+        z_test_p_values.append(float(ztest(first_table.iloc[:, [i]], second_table.iloc[:, [i]])[1]))
     return z_test_p_values
 
 def count_mean_diff(first_table, second_table):
@@ -54,6 +54,7 @@ mean_diff = count_mean_diff(expression_data_first_cell, expression_data_second_c
 
 
 results = {
+    "Gene": expression_data_first_cell.columns,
     "ci_test_results": ci_test_results,
     "z_test_results": z_test_results,
     "z_test_p_values": z_test_p_values,
