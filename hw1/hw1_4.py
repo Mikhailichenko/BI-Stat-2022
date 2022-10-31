@@ -8,11 +8,7 @@ print("ok")
 def check_intervals_intersect(first_ci, second_ci):   
     first_ci_inter = st.t.interval(alpha=0.95, df=len(first_ci) - 1, loc=np.mean(first_ci), scale=st.sem(first_ci))
     second_ci_inter = st.t.interval(alpha=0.95, df=len(second_ci) - 1, loc=np.mean(second_ci),scale=st.sem(second_ci))
-    return (first_ci_inter[1] < second_ci_inter[0] or first_ci_inter[0] > second_ci_inter[1])
-        are_intersect = False
-    else:
-        are_intersect = True
-    return are_intersect
+    return not(first_ci_inter[1] < second_ci_inter[0] or first_ci_inter[0] > second_ci_inter[1])
 
 def check_dge_with_ci(first_table, second_table):
     ci_test_results = []
