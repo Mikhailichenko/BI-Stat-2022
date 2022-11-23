@@ -1,0 +1,234 @@
+---
+title: "Project № 1"
+author: "Mikhailichenko Anastasia Sergeevna"
+date: "2022-11-22"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, dpi = 300, warning=FALSE, message=FALSE)
+if (!requireNamespace("ggplot2", quietly = TRUE))
+  install.packages("ggplot2")
+if (!requireNamespace("dplyr", quietly = TRUE))
+  install.packages("dplyr")
+library(ggplot2)
+library(dplyr)
+theme_set(theme_bw())
+```
+
+
+
+1) Since the observations are divided into several files, I create a function to combine the observations into a single table. The function combines all files of a certain extension from a given folder. The path to the folder and extensions of data files are passed as arguments.
+
+```{r}
+making_table_from_files = function (path_files, files_type) {
+pat <- stringi::stri_join("*.", files_type)
+filenames <- list.files(path_files, pattern=pat, full.names=TRUE)
+ldf <- lapply(filenames, read.csv)
+
+total <- do.call(rbind, ldf)
+return(total)
+}
+```
+
+Using the function, we get a table with data about the participants in the Olympic Games
+
+```{r}
+total <- making_table_from_files("data", "csv")
+str(total)
+```
+
+2) Some cells are empty. Let's put NA in them
+
+```{r}
+colSums(is.na(total))
+total <- total %>% mutate_all(na_if,"")
+colSums(is.na(total))
+```
+
+Let's look at the values in those columns in which we can guess what values should be.
+
+
+For example, two "G" values appear in the gender column, although it is expected that there should be only "F" or "M" values. Let's replace strange values with "NA"
+```{r}
+data.frame(table(total$Sex))
+total$Sex[total$Sex=="G"] <- NA
+data.frame(table(total$Sex))
+```
+
+There were no surprises in the "Medal" column
+
+```{r}
+data.frame(table(total$Medal))
+```
+
+
+Let's analyze the sports column. I guess it's suspicious to see sports that involve too few people. Let's find those sports in which less than five people performed.
+Among these suspicious sports, one is clearly erroneously tabulated. Let's replace "Footba" with "Football"
+
+```{r}
+sport <- data.frame(table(total$Sport))
+sport[sport[2]<5][]
+total$Sport[total$Sport=="Footba"] <- "Football"
+```
+
+Let's do the same as we did with the "Sports" column, but with the "Games" column. Let's find 2 rare variants with a typo (someone didn't finish the word summer) and replace them with the correct one.
+
+```{r}
+Games <- data.frame(table(total$Games))
+Games[Games[2]<5]
+total$Games[total$Games=="2000 Su"] <- "2000 Summer"
+total$Games[total$Games=="2004 Summe"] <- "2004 Summer"
+```
+
+Let's see if there are suspicious values in the age variable. I believe that if the age of the athlete is more than 100, the value can be considered unrealistic. In this dataset, there is just one such value, replace it with NA
+
+```{r}
+outA <- total %>% filter(!is.na(Age)) %>% .$Age > 100
+sum(outA)
+
+total$Age[total$Age==max(total$Age, na.rm = T)] <- NA
+outA <- total %>% filter(!is.na(Age)) %>% .$Age > 100
+sum(outA)
+```
+
+We will do the same with height values greater than 250. Again, one suspicious case was found and we will replace it with NA
+
+```{r}
+outH <- total %>% filter(!is.na(Height)) %>% .$Height > 250
+sum(outH)
+
+total$Height[total$Height==max(total$Height, na.rm = T)] <- NA
+outH <- total %>% filter(!is.na(Height)) %>% .$Height > 250
+sum(outH)
+```
+
+I would consider weight values more than 250 suspicious, but there were no such athletes
+```{r}
+outW <- total %>% filter(!is.na(Weight)) %>% .$Weight > 250
+sum(outW)
+```
+Alternatively, you can see if there are outlayers by plotting graphs (for example, a boxplot), but since values can be judged from everyday experience are presented here, there are few outliers and they are obvious; it was faster to set a threshold and cut off on it
+
+
+3) Find the age of the youngest athletes of both sexes at the 1992 Olympics.
+
+```{r}
+total %>% group_by(Sex) %>% filter(Year == 1992) %>% summarise(min_age = min(Age, na.rm = T))
+```
+
+4) Calculate the mean and standard deviation of the Height variable for athletes of each gender.
+
+```{r}
+total %>% group_by(Sex) %>% filter(!is.na(Sex)) %>% 
+  summarise(mean_hight = mean(Height, na.rm = TRUE), hight_sd = sd(Height, na.rm = TRUE))
+```
+
+5) Calculate the mean and standard deviation of the Height variable for female tennis players at the 2000 Olympics. Answer rounded to tenths.
+
+```{r}
+total %>% filter(!is.na(Sex)&Sex=="F"&Year==2000&Sport=="Tennis") %>%
+  summarise(mean_hight = round(mean(Height, na.rm = TRUE), 1), 
+            hight_sd = round(sd(Height, na.rm = TRUE),1))
+```
+
+6) The heaviest athlete at the 2006 Olympics competed in the Skeleton
+
+```{r}
+total %>% filter(Year==2006) %>% 
+  select(Weight, Sport) %>% 
+  arrange(-Weight) %>% .[1, 2]
+```
+
+7) 2249 gold medals were won by women from 1980 to 2010
+
+```{r}
+total %>% filter(!is.na(Medal)&!is.na(Sex)&Sex=="F"&Year>=1980&Year<=2010) %>% 
+  summarise(Gold_medals = sum(Medal=="Gold"))
+```
+
+8)John Aalberg participated in the Olympic Games 8 times
+
+```{r}
+total %>% filter(Name == "John Aalberg") %>% nrow(.)
+```
+
+He participated in the Olympic Games in 1992 and 1994, that is, 2 times in different years
+
+```{r}
+temp <- total %>% filter(Name == "John Aalberg")
+unique(temp$Year)
+length(unique(temp$Year))
+```
+
+9) Age groups and the number of athletes in them
+
+```{r}
+age_groups <- total %>% filter(Year==2008&!is.na(Age)) %>%  summarise("[12-25)"= sum(Age<25), "[25-35)"= sum(Age>=25&Age<35), "[35-45)"= sum(Age>=35&Age<45), "[45-55)"= sum(Age>=45&Age<55), "[55, 67]"= sum(Age>=55)) %>% .[1,]
+age_groups
+```
+
+Age group with the minimum number of athletes
+
+```{r}
+colnames(age_groups)[which.min(age_groups[][])]
+```
+
+Age group with the maximum number of athletes
+
+```{r}
+colnames(age_groups)[which.max(age_groups[][])]
+```
+
+10) The number of sports at the 2002 Olympics increased by 3 compared to the 1994 Olympics
+
+```{r}
+olimp2002 <- total %>% filter(Year==2002) 
+olimp1994 <- total %>% filter(Year==1994)
+nrow(data.frame(table(olimp2002$Sport))) - nrow(data.frame(table(olimp1994$Sport)))
+```
+
+11) For the winter and summer Olympiads separately, the top 3 countries for each type of medals are displayed 
+```{r}
+df_for_medals <- total %>% filter(!is.na(Medal)&!is.na(Season))
+df_for_medals_freq <- data.frame(table(df_for_medals$Medal, df_for_medals$Season, df_for_medals$NOC))
+stats <- df_for_medals_freq %>% group_by(Var1,Var2) %>% 
+  arrange(Freq)  %>%   
+  top_n(n = 3) %>% arrange(Var1)
+
+colnames(stats) <- c("Medal_type", "Season", "Country", "Medal_count")
+stats %>% filter(Season=="Summer")
+stats %>% filter(Season=="Winter")
+```
+
+12) Height variable standardization is written in Height_z_scores
+
+```{r}
+Height_z_scores <- rep(NA, nrow(total))
+Height_z_scores[!is.na(total$Height)] <-
+  scale(total$Height[!is.na(total$Height)], center=TRUE, scale = TRUE)
+```
+
+14) Let's check if there are differences between men and women in height, weight and age with a two-sample t-test
+```{r}
+t.test(formula =  Height~Sex , data = total)
+t.test(formula =  Weight~Sex , data = total)
+t.test(formula =  Age~Sex , data = total)
+```
+
+p-value in all three cases is greater than 0.05, which means that the differences in the values are statistically significant.
+Let's plot graphs for all three cases.
+
+```{r}
+plot <- total %>% filter(!is.na(Sex)&!is.na(Season)) %>% ggplot(., aes(x = Sex, fill = Sex)) +
+  theme(legend.position =" none ")
+plot + geom_boxplot(aes(y = Height))
+plot + geom_boxplot(aes(y = Weight))
+plot + geom_boxplot(aes(y = Age))
+```
+
+It would be possible to draw p-values on the graphs, but when I tried to install the package for this, everything just broke and P stopped seeing the installed packages. Reinstalling R, I realized that well, for the article, you can then add p-values via Photoshop
+
+
